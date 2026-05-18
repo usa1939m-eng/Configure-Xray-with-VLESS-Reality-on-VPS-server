@@ -9,22 +9,23 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Xray & Generate Keys
+      - name: Download Xray and Setup Config
         run: |
-          # نصب هسته اصلی Xray
-          bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+          # دانلود مستقیم نسخه نهایی لینوکس ۶۴ بیت Xray بدون نیاز به اسکریپت نصب
+          curl -L -o xray.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
+          unzip xray.zip -d ./xray_bin
+          chmod +x ./xray_bin/xray
           
-          # تولید کلیدهای اختصاصی REALITY به صورت خودکار
-          KEYS=$(xray x25519)
+          # تولید کلیدهای REALITY
+          KEYS=$(./xray_bin/xray x25519)
           PRIV_KEY=$(echo "$KEYS" | grep "Private key:" | awk '{print $3}')
           PUB_KEY=$(echo "$KEYS" | grep "Public key:" | awk '{print $3}')
           
           echo "========================================="
-          echo "YOUR PUBLIC KEY (SAVE THIS): $PUB_KEY"
+          echo "YOUR PUBLIC KEY: $PUB_KEY"
           echo "========================================="
           
-          # ساخت فایل کانفیگ
-          mkdir -p /tmp/xray
+          # ساخت کانفیگ در پوشه محلی جاری
           echo "{
             \"log\": { \"loglevel\": \"warning\" },
             \"inbounds\": [{
@@ -48,15 +49,13 @@ jobs:
               }
             }],
             \"outbounds\": [{ \"protocol\": \"freedom\" }]
-          }" > /tmp/xray/config.json
+          }" > ./config.json
 
       - name: Start Server & Create Tunnel
         run: |
-          # دانلود ابزار تونل زنی tmate
+          # اجرای سرور Xray در پس زمینه به صورت محلی
+          ./xray_bin/xray run -c ./config.json &
+          
+          # دانلود و اجرای ابزار تونل tmate
           curl -L https://github.com/tmate-io/tmate/releases/download/2.4.0/tmate-2.4.0-static-linux-amd64.tar.xz | tar xJ
-          
-          # اجرای همزمان هسته Xray و تونل بدون نیاز به خدمات سیستم
-          /usr/local/bin/xray run -c /tmp/xray/config.json &
-          
-          # راه اندازی تونل برای تحویل دادن آدرس سرور به شما
           ./tmate-2.4.0-static-linux-amd64/tmate -F
