@@ -1,50 +1,62 @@
 name: Run Reality Server
 on:
-  workflow_dispatch: # به شما اجازه می‌دهد سرور را دستی روشن کنید
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Install Xray Core
+      - name: Install Xray & Generate Keys
         run: |
+          # نصب هسته اصلی Xray
           bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
           
-      - name: Configure VLESS Reality
-          # در این بخش تنظیمات داکر و UUID شما اعمال می‌شود
-        run: |
-          mkdir -p /usr/local/etc/xray
-          echo '{
-            "log": { "loglevel": "warning" },
-            "inbounds": [{
-              "port": 443,
-              "protocol": "vless",
-              "settings": {
-                "clients": [{ "id": "9f4e2468-b715-4c31-b3b3-85764b8d781a", "flow": "xtls-r-vision" }],
-                "decryption": "none"
+          # تولید کلیدهای اختصاصی REALITY به صورت خودکار
+          KEYS=$(xray x25519)
+          PRIV_KEY=$(echo "$KEYS" | grep "Private key:" | awk '{print $3}')
+          PUB_KEY=$(echo "$KEYS" | grep "Public key:" | awk '{print $3}')
+          
+          echo "========================================="
+          echo "YOUR PUBLIC KEY (SAVE THIS): $PUB_KEY"
+          echo "========================================="
+          
+          # ساخت فایل کانفیگ
+          mkdir -p /tmp/xray
+          echo "{
+            \"log\": { \"loglevel\": \"warning\" },
+            \"inbounds\": [{
+              \"port\": 8080,
+              \"protocol\": \"vless\",
+              \"settings\": {
+                \"clients\": [{ \"id\": \"9f4e2468-b715-4c31-b3b3-85764b8d781a\", \"flow\": \"xtls-r-vision\" }],
+                \"decryption\": \"none\"
               },
-              "streamSettings": {
-                "network": "tcp",
-                "security": "reality",
-                "realitySettings": {
-                  "show": true,
-                  "dest": "www.docker.com:443",
-                  "xver": 0,
-                  "serverNames": ["www.docker.com"],
-                  "privateKey": "یک_کلید_خصوصی_اینجا_تولید_میشود",
-                  "shortIds": ["66"]
+              \"streamSettings\": {
+                \"network\": \"tcp\",
+                \"security\": \"reality\",
+                \"realitySettings\": {
+                  \"show\": true,
+                  \"dest\": \"www.docker.com:443\",
+                  \"xver\": 0,
+                  \"serverNames\": [\"www.docker.com\"],
+                  \"privateKey\": \"$PRIV_KEY\",
+                  \"shortIds\": [\"66\"]
                 }
               }
             }],
-            "outbounds": [{ "protocol": "freedom" }]
-          }' > /usr/local/etc/xray/config.json
+            \"outbounds\": [{ \"protocol\": \"freedom\" }]
+          }" > /tmp/xray/config.json
 
       - name: Start Server & Create Tunnel
         run: |
-          systemctl start xray
-          # استفاده از یک تونلینگ فوری مثل tmate برای گرفتن آدرس سرور بدون نیاز به اکانت
+          # دانلود ابزار تونل زنی tmate
           curl -L https://github.com/tmate-io/tmate/releases/download/2.4.0/tmate-2.4.0-static-linux-amd64.tar.xz | tar xJ
+          
+          # اجرای همزمان هسته Xray و تونل بدون نیاز به خدمات سیستم
+          /usr/local/bin/xray run -c /tmp/xray/config.json &
+          
+          # راه اندازی تونل برای تحویل دادن آدرس سرور به شما
           ./tmate-2.4.0-static-linux-amd64/tmate -F
