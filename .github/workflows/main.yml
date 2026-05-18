@@ -11,18 +11,19 @@ jobs:
 
       - name: Download Xray and Setup Config
         run: |
-          curl -L -o xray.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
+          # دانلود نسخه کاملاً رسمی و پایدار Xray-core
+          curl -L -o xray.zip https://github.com/XTLS/Xray-core/releases/download/v1.8.23/Xray-linux-64.zip
           unzip xray.zip -d ./xray_bin
           chmod +x ./xray_bin/xray
           
-          # ساخت مستقیم کانفیگ با کلیدهای از پیش تولید شده ثابت
+          # ساخت کانفیگ کاملاً استاندارد REALITY (بدون فلو اضافی)
           echo '{
             "log": { "loglevel": "warning" },
             "inbounds": [{
               "port": 8080,
               "protocol": "vless",
               "settings": {
-                "clients": [{ "id": "9f4e2468-b715-4c31-b3b3-85764b8d781a", "flow": "xtls-r-vision" }],
+                "clients": [{ "id": "9f4e2468-b715-4c31-b3b3-85764b8d781a" }],
                 "decryption": "none"
               },
               "streamSettings": {
@@ -43,9 +44,9 @@ jobs:
 
       - name: Start Server & Create Tunnel
         run: |
-          # اجرای بدون خطای هسته Xray
+          # اجرای سرور
           ./xray_bin/xray run -c ./config.json &
           
-          # اجرای تونل
+          # اجرای تونل tmate
           curl -L https://github.com/tmate-io/tmate/releases/download/2.4.0/tmate-2.4.0-static-linux-amd64.tar.xz | tar xJ
           ./tmate-2.4.0-static-linux-amd64/tmate -F
