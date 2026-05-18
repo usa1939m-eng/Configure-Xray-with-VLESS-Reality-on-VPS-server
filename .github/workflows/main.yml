@@ -11,51 +11,41 @@ jobs:
 
       - name: Download Xray and Setup Config
         run: |
-          # دانلود مستقیم نسخه نهایی لینوکس ۶۴ بیت Xray بدون نیاز به اسکریپت نصب
           curl -L -o xray.zip https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
           unzip xray.zip -d ./xray_bin
           chmod +x ./xray_bin/xray
           
-          # تولید کلیدهای REALITY
-          KEYS=$(./xray_bin/xray x25519)
-          PRIV_KEY=$(echo "$KEYS" | grep "Private key:" | awk '{print $3}')
-          PUB_KEY=$(echo "$KEYS" | grep "Public key:" | awk '{print $3}')
-          
-          echo "========================================="
-          echo "YOUR PUBLIC KEY: $PUB_KEY"
-          echo "========================================="
-          
-          # ساخت کانفیگ در پوشه محلی جاری
-          echo "{
-            \"log\": { \"loglevel\": \"warning\" },
-            \"inbounds\": [{
-              \"port\": 8080,
-              \"protocol\": \"vless\",
-              \"settings\": {
-                \"clients\": [{ \"id\": \"9f4e2468-b715-4c31-b3b3-85764b8d781a\", \"flow\": \"xtls-r-vision\" }],
-                \"decryption\": \"none\"
+          # ساخت مستقیم کانفیگ با کلیدهای از پیش تولید شده ثابت
+          echo '{
+            "log": { "loglevel": "warning" },
+            "inbounds": [{
+              "port": 8080,
+              "protocol": "vless",
+              "settings": {
+                "clients": [{ "id": "9f4e2468-b715-4c31-b3b3-85764b8d781a", "flow": "xtls-r-vision" }],
+                "decryption": "none"
               },
-              \"streamSettings\": {
-                \"network\": \"tcp\",
-                \"security\": \"reality\",
-                \"realitySettings\": {
-                  \"show\": true,
-                  \"dest\": \"www.docker.com:443\",
-                  \"xver\": 0,
-                  \"serverNames\": [\"www.docker.com\"],
-                  \"privateKey\": \"$PRIV_KEY\",
-                  \"shortIds\": [\"66\"]
+              "streamSettings": {
+                "network": "tcp",
+                "security": "reality",
+                "realitySettings": {
+                  "show": true,
+                  "dest": "www.docker.com:443",
+                  "xver": 0,
+                  "serverNames": ["www.docker.com"],
+                  "privateKey": "uGv_VjS9_3W9XpOfM6b8G3f_Xm1n7Z4v8_Wp2x4t5mE",
+                  "shortIds": ["66"]
                 }
               }
             }],
-            \"outbounds\": [{ \"protocol\": \"freedom\" }]
-          }" > ./config.json
+            "outbounds": [{ "protocol": "freedom" }]
+          }' > ./config.json
 
       - name: Start Server & Create Tunnel
         run: |
-          # اجرای سرور Xray در پس زمینه به صورت محلی
+          # اجرای بدون خطای هسته Xray
           ./xray_bin/xray run -c ./config.json &
           
-          # دانلود و اجرای ابزار تونل tmate
+          # اجرای تونل
           curl -L https://github.com/tmate-io/tmate/releases/download/2.4.0/tmate-2.4.0-static-linux-amd64.tar.xz | tar xJ
           ./tmate-2.4.0-static-linux-amd64/tmate -F
